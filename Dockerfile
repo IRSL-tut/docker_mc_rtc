@@ -17,17 +17,18 @@ ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
 # https://stackoverflow.com/a/25423366
 SHELL ["/bin/bash", "-c"]
 
+# https://genzouw.com/entry/2019/09/04/085135/1718/
+RUN sed -i 's@archive.ubuntu.com@ftp.jaist.ac.jp/pub/Linux@g' /etc/apt/sources.list
+
 # Install basic packages
-RUN apt-get update -qq
-RUN apt-get install -y sudo aptitude build-essential lsb-release wget gnupg2 curl emacs
+RUN apt-get update -qq && apt-get install -y sudo aptitude build-essential lsb-release wget gnupg2 curl emacs
 RUN aptitude update -q
 
 # Install ROS
 ENV ROS_DISTRO noetic
 RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 RUN wget http://packages.ros.org/ros.key -O - | apt-key add -
-RUN apt-get update -qq
-RUN apt-get install -y ros-${ROS_DISTRO}-ros-base python3-catkin-tools python3-rosdep python3-wstool python3-rosinstall python3-rosinstall-generator doxygen graphviz
+RUN apt-get update -qq &&  apt-get install -y ros-${ROS_DISTRO}-ros-base python3-catkin-tools python3-rosdep python3-wstool python3-rosinstall python3-rosinstall-generator doxygen graphviz
 # Install rospackage for mc_rtc
 RUN curl -1sLf 'https://dl.cloudsmith.io/public/mc-rtc/stable/setup.deb.sh' | bash
 RUN apt-get install -y ros-${ROS_DISTRO}-mc-rtc-plugin ros-${ROS_DISTRO}-mc-rtc-rviz-panel
@@ -44,14 +45,14 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.23.3/cmake-3.23.3
 RUN tar -zxvf cmake-3.23.3.tar.gz
 WORKDIR ${HOME}/cmake-3.23.3
 RUN ./bootstrap
-RUN make
+RUN make -j`nproc`
 RUN make install
 RUN hash -r
 
 # Setup Github SSH
 WORKDIR $HOME
-RUN apt update
-RUN apt install -y \
+RUN apt update && \
+    apt install -y \
     git \
     openssh-server
 RUN mkdir -p -m 0700 ~/.ssh && \
@@ -59,8 +60,10 @@ RUN mkdir -p -m 0700 ~/.ssh && \
     git config --global url.git@github.com:.insteadOf https://github.com/
 
 # Setup mc_rtc
-RUN git config --global user.email "tako.taro.tf@tut.jp"
-RUN git config --global user.name "tabinohito"
+ARG GIT_USERNAME="tabinohito"
+ARG GIT_USEREMAIL="tako.taro.tf@tut.jp"
+RUN git config --global user.email "${GIT_USEREMAIL}"
+RUN git config --global user.name "${GIT_USERNAME}"
 RUN echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc
 RUN echo 'export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH' >> ~/.bashrc
 RUN echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.bashrc
