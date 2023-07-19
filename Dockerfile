@@ -60,8 +60,8 @@ RUN mkdir -p -m 0700 ~/.ssh && \
     git config --global url.git@github.com:.insteadOf https://github.com/
 
 # Setup mc_rtc
-ARG GIT_USERNAME="tabinohito"
-ARG GIT_USEREMAIL="tako.taro.tf@tut.jp"
+ARG GIT_USERNAME
+ARG GIT_USEREMAIL
 RUN git config --global user.email "${GIT_USEREMAIL}"
 RUN git config --global user.name "${GIT_USERNAME}"
 RUN echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc
