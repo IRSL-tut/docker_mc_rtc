@@ -1,0 +1,76 @@
+# syntax=docker/dockerfile:1
+## docker build . -f Dockerfile.simple -t mc_rtc
+#FROM ubuntu:20.04
+FROM ros:noetic-ros-base
+
+# https://qiita.com/haessal/items/0a83fe9fa1ac00ed5ee9
+ENV DEBCONF_NOWARNINGS=yes
+# https://qiita.com/yagince/items/deba267f789604643bab
+ENV DEBIAN_FRONTEND=noninteractive
+# https://qiita.com/jacob_327/items/e99ca1cf8167d4c1486d
+ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
+
+# https://stackoverflow.com/a/25423366
+SHELL ["/bin/bash", "-c"]
+
+RUN echo 'Asia/Tokyo' > /etc/timezone && \
+    ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
+    apt-get update -q -qq && \
+    apt-get install -q -qq -y --no-install-recommends tzdata sudo && \
+    apt-get install -q -qq -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" keyboard-configuration && \
+    apt-get install -q -qq -y sudo build-essential lsb-release wget gnupg2 curl python3-pip && \
+    apt-get install -q -qq -y ros-${ROS_DISTRO}-ros-base python3-catkin-tools python3-rosdep python3-wstool python3-rosinstall python3-rosinstall-generator doxygen graphviz && \
+    rm -rf /var/lib/apt/lists/*
+## aptitude emacs
+
+# Install rospackage for mc_rtc
+#RUN curl -1sLf 'https://dl.cloudsmith.io/public/mc-rtc/stable/setup.deb.sh' | bash
+#RUN apt-get update -q -qq && \
+#    apt-get install -q -qq -y ros-${ROS_DISTRO}-mc-rtc-plugin ros-${ROS_DISTRO}-mc-rtc-rviz-panel && \
+#    rm -rf /var/lib/apt/lists/*
+
+# # Setup catkin workspace
+ENV BUILD_ROOT /mc_rtc
+##RUN mkdir -p ${BUILD_ROOT}/catkin_ws/src
+##WORKDIR ${BUILD_ROOT}/catkin_ws
+
+RUN apt-get update -q -qq && \
+    apt-get install -q -qq -y git && \
+    rm -rf /var/lib/apt/lists/*
+
+# Setup mc_rtc
+ARG GIT_USERNAME=irsl
+ARG GIT_USEREMAIL=irsl@tut.jp
+RUN git config --global user.email "${GIT_USEREMAIL}"
+RUN git config --global user.name "${GIT_USERNAME}"
+
+WORKDIR ${BUILD_ROOT}/workspace
+RUN git clone https://github.com/mc-rtc/mc-rtc-superbuild
+
+RUN (cd mc-rtc-superbuild/extensions && git clone https://github.com/mc-rtc/superbuild-extensions.git)
+
+RUN mc-rtc-superbuild/utils/bootstrap-linux.sh
+
+RUN echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc
+RUN echo 'export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH' >> ~/.bashrc
+RUN echo 'export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH' >> ~/.bashrc
+RUN echo 'export PYTHONPATH=/usr/local/lib/python3.8/dist-packages:$PYTHONPATH' >> ~/.bashrc
+RUN echo 'export ROS_PARALLEL_JOBS="-j8 -l8"' >> ~/.bashrc
+RUN echo 'source /opt/ros/${ROS_DISTRO}/setup.bash' >> ~/.bashrc
+RUN echo "source ${BUILD_ROOT}/workspace/src/catkin_ws/devel/setup.bash" >> ~/.bashrc
+
+RUN source ~/.bashrc; cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build
+
+RUN source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo --target clone
+
+## Fail at build, Fail at run
+#RUN source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo
+## Fail at build, Success at run
+#RUN bash -c "cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build;  cmake --build mc-rtc-superbuild/build --config RelWithDebInfo"
+## Fail at build, Success at run??
+#RUN source ~/.bashrc; \
+#    cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build; \
+#    cmake --build mc-rtc-superbuild/build --config RelWithDebInfo
+
+## After build 
+## docker run mc_rtc -- bash -c 'cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo'
