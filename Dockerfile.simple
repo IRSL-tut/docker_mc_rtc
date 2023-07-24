@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-## docker build . -f Dockerfile.simple -t mc_rtc
+## docker build . --progress=plain -f Dockerfile.simple -t mc_rtc:build0
 #FROM ubuntu:20.04
 FROM ros:noetic-ros-base
 
@@ -59,9 +59,11 @@ RUN echo 'export ROS_PARALLEL_JOBS="-j8 -l8"' >> ~/.bashrc
 RUN echo 'source /opt/ros/${ROS_DISTRO}/setup.bash' >> ~/.bashrc
 RUN echo "source ${BUILD_ROOT}/workspace/src/catkin_ws/devel/setup.bash" >> ~/.bashrc
 
-RUN source ~/.bashrc; cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build
+RUN ( source ~/.bashrc; cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build )
 
-RUN source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo --target clone
+RUN ( source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo --target clone )
+
+# RUN ( source /opt/ros/${ROS_DISTRO}/setup.bash; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo )
 
 ## Fail at build, Fail at run
 #RUN source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo
@@ -73,4 +75,12 @@ RUN source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebI
 #    cmake --build mc-rtc-superbuild/build --config RelWithDebInfo
 
 ## After build 
-## docker run mc_rtc -- bash -c 'cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo'
+## docker run --name mc_rtc_build1 mc_rtc:build0 -- bash -c 'cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo'
+## docker commit mc_rtc_build1 mc_rtc:build1
+## docker run --name mc_rtc_build2 -v $(pwd):/userdir -it mc_rtc:build1 bash
+## ;; cp -r /userdir/superbuild-choreonoid mc-rtc-superbuild/extensions;
+## ;; ( source ~/.bashrc; cmake -S mc-rtc-superbuild -B mc-rtc-superbuild/build -DSOURCE_DESTINATION=${BUILD_ROOT}/workspace/src -DBUILD_DESTINATION=${BUILD_ROOT}/workspace/build )
+## ;; ( source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo --target clone )
+## ;; ( source ~/.bashrc; cmake --build mc-rtc-superbuild/build --config RelWithDebInfo )
+## docker commit mc_rtc_build2 mc_rtc:build2
+## docker build . -f Dockerfile.add_rtshell --build-arg BASE_IMAGE=mc_rtc:build2
