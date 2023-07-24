@@ -1,0 +1,37 @@
+## docker build . --progress=plain -f Dockerfile.add_rtshell --build-arg BASE_IMAGE=mc_rtc:cnoid
+
+ARG BASE_IMAGE=mc_rtc:cnoid
+FROM ${BASE_IMAGE}
+
+WORKDIR /mc_rtc/rtshell
+
+RUN (git clone https://github.com/OpenRTM/rtsprofile.git; cd rtsprofile; git checkout -b 2.0.0 2.0.0; python2 setup.py install)
+RUN (git clone https://github.com/OpenRTM/rtctree.git; cd rtctree; git checkout -b v3.0.1 v3.0.1; python2 setup.py install)
+RUN (git clone https://github.com/OpenRTM/rtshell.git; cd rtshell; git checkout -b v3.0.1 v3.0.1; yes | python2 setup.py install)
+
+####
+#### add glvnd
+####
+RUN apt-get update -q -qq && \
+    apt-get install -q -qq -y --no-install-recommends libxau6 libxdmcp6 libxcb1 libxext6 libx11-6  && \
+    rm -rf /var/lib/apt/lists/*
+
+### set default environment variables
+ENV NVIDIA_VISIBLE_DEVICES \
+        ${NVIDIA_VISIBLE_DEVICES:-all}
+ENV NVIDIA_DRIVER_CAPABILITIES \
+        ${NVIDIA_DRIVER_CAPABILITIES:-all}
+
+###
+RUN echo "/usr/local/nvidia/lib" >> /etc/ld.so.conf.d/nvidia.conf && \
+    echo "/usr/local/nvidia/lib64" >> /etc/ld.so.conf.d/nvidia.conf
+    
+ENV LD_LIBRARY_PATH /usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+
+###
+RUN apt-get update -q -qq && \
+    apt-get install -q -qq -y --no-install-recommends libglvnd0 libgl1 libglx0 libegl1 libgles2 && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV ORBgiopMaxMsgSize=2147483648
+ENV RTCTREE_NAMESERVERS=localhost
